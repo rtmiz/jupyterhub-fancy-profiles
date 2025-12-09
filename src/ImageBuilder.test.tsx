@@ -172,16 +172,16 @@ test("invalid org/repo string (not matching pattern)", async () => {
   await user.click(document.body);
 
   expect(
-    screen.getByText(
+    screen.getAllByText(
       "Provide the repository as the format 'organization/repository'.",
-    ),
-  );
+    ).length,
+  ).toBeGreaterThan(0);
 });
 
 test("repofield trims leading/trailing spaces", async () => {
   const user = userEvent.setup();
 
-  renderWithContext(<ProfileForm />);
+  renderWithContext(<form><ProfileForm /></form>);
   const radio = screen.getByRole("radio", {
     name: "CPU only No GPU, only CPU",
   });
@@ -195,7 +195,7 @@ test("repofield trims leading/trailing spaces", async () => {
   const repoField = screen.getByLabelText("Repository");
   await user.type(repoField, "     extra/spaces  ");
   await user.click(document.body);
-  await user.click(screen.getByRole("button", { name: "Build image" }));
+  await user.click(screen.getByRole("button", { name: "Build Image and Start" }));
 
   expect(repoField).toHaveValue("extra/spaces");
 });
@@ -203,7 +203,7 @@ test("repofield trims leading/trailing spaces", async () => {
 test("ref trims leading/trailing spaces", async () => {
   const user = userEvent.setup();
 
-  renderWithContext(<ProfileForm />);
+  renderWithContext(<form><ProfileForm /></form>);
   const radio = screen.getByRole("radio", {
     name: "CPU only No GPU, only CPU",
   });
@@ -218,7 +218,7 @@ test("ref trims leading/trailing spaces", async () => {
   await user.clear(refField);
   await user.type(refField, " branch ");
   await user.click(document.body);
-  await user.click(screen.getByRole("button", { name: "Build image" }));
+  await user.click(screen.getByRole("button", { name: "Build Image and Start" }));
 
   expect(refField).toHaveValue("branch");
 });
@@ -246,10 +246,10 @@ test("invalid org/repo string (wrong base URL)", async () => {
   await user.click(document.body);
 
   expect(
-    screen.getByText(
+    screen.getAllByText(
       "Provide the repository as the format 'organization/repository'.",
-    ),
-  );
+    ).length,
+  ).toBeGreaterThan(0);
 });
 
 test("no org/repo provided", async () => {
@@ -272,10 +272,10 @@ test("no org/repo provided", async () => {
   await user.click(screen.getByRole("button", { name: "Build Image and Start" }));
 
   expect(
-    screen.getByText(
+    screen.getAllByText(
       "Provide the repository as the format 'organization/repository'.",
-    ),
-  );
+    ).length,
+  ).toBeGreaterThan(0);
 });
 
 test("no branch selected", async () => {
@@ -303,5 +303,5 @@ test("no branch selected", async () => {
   await user.clear(screen.queryByLabelText("Git Ref"));
   await user.click(screen.getByRole("button", { name: "Build Image and Start" }));
 
-  expect(screen.getByText("Enter a git ref."));
+  expect(screen.getAllByText("Enter a git ref.").length).toBeGreaterThan(0);
 });

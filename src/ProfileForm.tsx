@@ -51,7 +51,10 @@ function Form() {
 
     e.preventDefault();
     if (buildImageStart){
-      await buildImageStart();
+      const form = document.querySelector("form");
+      if (form) {
+        form.requestSubmit()
+      }
     }
     setShouldSubmit(true);
   };
@@ -135,12 +138,10 @@ function Form() {
     if (permalinkValues["autoStart"] === "true") {
       const form = document.querySelector("form");
       if (form) {
-        const button = form.querySelector("button[type=\"submit\"]") as HTMLButtonElement | null;
-        if (button) {
-          setTimeout(() => {
-            button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-          }, 1000); // Give the form a second to render, and the profile to be selected, HACK but it works
-        }
+        setTimeout(() => {
+          form.requestSubmit()
+        }, 500); // Give the form a second to render, and the profile to be selected, HACK but it works
+      
       }
     }
   }, [permalinkValues]);
@@ -215,8 +216,8 @@ function Form() {
           <p><b>Unable to start the server. The form is incomplete.</b></p>
           <ul>
             {profileError && <li>{profileError}</li>}
-            {formErrors.map(err => (
-              <li>
+            {formErrors.map((err, index) => (
+              <li key={index}>
                 <a
                   href="#"
                   onClick={(e) => {
