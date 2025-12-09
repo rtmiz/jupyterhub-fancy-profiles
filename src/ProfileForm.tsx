@@ -31,7 +31,7 @@ function Form() {
   const { permalinkValues, setPermalinkValue, permalinkParseError } = useContext(PermalinkContext);
   const [profileError, setProfileError] = useState("");
   const [formErrors, setFormErrors] = useState<Element[]>([]);
-  const { cacheChoiceOption, cacheRepositorySelection, buildImageStart } = useFormCache();
+  const { cacheChoiceOption, cacheRepositorySelection, buildImageStart, isBuildingImage } = useFormCache();
 
   const [shouldSubmit, setShouldSubmit] = useState(false);
 
@@ -138,8 +138,9 @@ function Form() {
         const button = form.querySelector("button[type=\"submit\"]") as HTMLButtonElement | null;
         if (button) {
           setTimeout(() => {
-            button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-          }, 500); // Give the form a second to render, and the profile to be selected, HACK but it works
+            button.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
+            form.requestSubmit()
+          }, 1000); // Give the form a second to render, and the profile to be selected, HACK but it works
         }
       }
     }
@@ -235,6 +236,7 @@ function Form() {
         className="btn btn-jupyter form-control"
         type="submit"
         onClick={handleSubmit}
+        disabled={isBuildingImage}
       >
         {buildImageStart ? "Build Image and Start" : "Start"}
       </button>

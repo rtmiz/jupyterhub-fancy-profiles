@@ -25,6 +25,8 @@ export interface IFormCache {
 
   buildImageStart: (() => Promise<void>) | null;
   setBuildImageStart: Dispatch<SetStateAction<(() => Promise<void>) | null>>;
+  isBuildingImage: boolean;
+  setIsBuildingImage: Dispatch<SetStateAction<boolean>>;
 }
 
 type TChoiceEntry = {
@@ -159,6 +161,7 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
   }, []);
 
   const [buildImageStart, setBuildImageStart] = useState<(() => Promise<void>) | null>(null);
+  const [isBuildingImage, setIsBuildingImage] = useState<boolean>(false);
 
   const contextValue = {
     getChoiceOptions,
@@ -170,7 +173,9 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
     removeRepositoryOption,
     removeRefOption,
     buildImageStart,
-    setBuildImageStart
+    setBuildImageStart,
+    isBuildingImage,
+    setIsBuildingImage
   };
 
   return (

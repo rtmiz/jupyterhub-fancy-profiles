@@ -169,7 +169,7 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
   const { repo, repoId, repoFieldProps, repoError } =
     useRepositoryField(binderRepo);
   const { getRepositoryOptions, getRefOptions, removeRefOption, removeRepositoryOption,
-    setBuildImageStart } = useFormCache();
+    setBuildImageStart, isBuildingImage, setIsBuildingImage } = useFormCache();
 
   const [ref, setRef] = useState<string>(repoRef || "HEAD");
   const repoFieldRef = useRef<HTMLInputElement>();
@@ -180,9 +180,6 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
 
   const [term, setTerm] = useState<Terminal>(null);
   const [fitAddon, setFitAddon] = useState<FitAddon>(null);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_isBuildingImage, setIsBuildingImage] = useState<boolean>(false);
 
   const hrefReop = useRef<string>(repo);
   const hrefRef = useRef<string>(ref);
@@ -288,6 +285,7 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
           }
         }
         onKeyDown={handleKeyDown}
+        disabled={isBuildingImage}
       />
       <Combobox
         id={`${name}--ref`}
@@ -310,6 +308,7 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
         onRemoveOption={(option) => {
           removeRefOption(name, repoFieldProps.value, option);
         }}
+        disabled={isBuildingImage}
       />
 
       <input
