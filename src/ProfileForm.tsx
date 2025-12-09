@@ -47,20 +47,17 @@ function Form() {
   }, [shouldSubmit]);
 
 
-  const handleSubmit: MouseEventHandler<HTMLButtonElement> =  async (e: MouseEvent<HTMLButtonElement>) => {
+  const handleSubmit: MouseEventHandler<HTMLButtonElement> = async (e: MouseEvent<HTMLButtonElement>) => {
 
     e.preventDefault();
-    if (buildImageStart){
-      const form = document.querySelector("form");
-      if (form) {
-        form.requestSubmit()
-      }
+    if (buildImageStart) {
+      await buildImageStart();
     }
     setShouldSubmit(true);
   };
 
 
-  const submitTheForm =  () => {
+  const submitTheForm = () => {
 
     setProfileError("");
     setFormErrors([]);
@@ -138,15 +135,17 @@ function Form() {
     if (permalinkValues["autoStart"] === "true") {
       const form = document.querySelector("form");
       if (form) {
-        setTimeout(() => {
-          form.requestSubmit()
-        }, 500); // Give the form a second to render, and the profile to be selected, HACK but it works
-      
+        const button = form.querySelector("button[type=\"submit\"]") as HTMLButtonElement | null;
+        if (button) {
+          setTimeout(() => {
+            button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+          }, 500); // Give the form a second to render, and the profile to be selected, HACK but it works
+        }
       }
     }
   }, [permalinkValues]);
 
-  
+
 
   return (
     <fieldset
@@ -169,9 +168,8 @@ function Form() {
           <div
             id={`profile-${slug}`}
             key={slug}
-            className={`profile-select ${
-              selectedProfile?.slug === slug ? "selected-profile" : ""
-            }`}
+            className={`profile-select ${selectedProfile?.slug === slug ? "selected-profile" : ""
+              }`}
             onClick={() => {
               setProfile(slug);
               setPermalinkValue("profile", slug);
@@ -238,7 +236,7 @@ function Form() {
         type="submit"
         onClick={handleSubmit}
       >
-        { buildImageStart ? "Build Image and Start" : "Start" }
+        {buildImageStart ? "Build Image and Start" : "Start"}
       </button>
     </fieldset>
   );
