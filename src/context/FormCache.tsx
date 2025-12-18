@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  useMemo,
   Dispatch,
   SetStateAction
 } from "react";
@@ -163,7 +164,7 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
   const [buildImageStart, setBuildImageStart] = useState<(() => Promise<void>) | null>(null);
   const [isBuildingImage, setIsBuildingImage] = useState<boolean>(false);
 
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     getChoiceOptions,
     cacheChoiceOption,
     getRepositoryOptions,
@@ -176,7 +177,20 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
     setBuildImageStart,
     isBuildingImage,
     setIsBuildingImage
-  };
+  }), [
+    getChoiceOptions,
+    cacheChoiceOption,
+    getRepositoryOptions,
+    getRefOptions,
+    cacheRepositorySelection,
+    removeChoiceOption,
+    removeRepositoryOption,
+    removeRefOption,
+    buildImageStart,
+    setBuildImageStart,
+    isBuildingImage,
+    setIsBuildingImage
+  ]);
 
   return (
     <FormCacheContext.Provider value={contextValue}>

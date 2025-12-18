@@ -244,11 +244,15 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
   };
 
   useEffect(() => {
-    setBuildImageStart(() => handleBuildStart);
+    if (isActive) {
+      setBuildImageStart(() => handleBuildStart);
+    } else {
+      setBuildImageStart(null);
+    }
     return () => {
       setBuildImageStart(null);
     };
-  }, []);
+  }, [isActive]);
 
   const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (e) => {
     if (e.key === "Enter") {

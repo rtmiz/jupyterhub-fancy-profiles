@@ -139,7 +139,6 @@ function Form() {
         if (button) {
           setTimeout(() => {
             button.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
-            form.requestSubmit()
           }, 1000); // Give the form a second to render, and the profile to be selected, HACK but it works
         }
       }
