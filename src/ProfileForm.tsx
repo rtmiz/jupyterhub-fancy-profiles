@@ -37,7 +37,7 @@ function Form() {
 
   useEffect(() => {
     if (shouldSubmit) {
-      submitTheForm();
+      cacheFormValues();
       setShouldSubmit(false);
       const form = document.querySelector("form");
       if (form) {
@@ -48,8 +48,35 @@ function Form() {
 
 
   const handleSubmit: MouseEventHandler<HTMLButtonElement> = async (e: MouseEvent<HTMLButtonElement>) => {
-
     e.preventDefault();
+    setProfileError("");
+    setFormErrors([]);
+
+    const form = document.querySelector("form");
+    if (!form) {
+      return;
+    }
+
+    let formIsValid = true;
+    let firstInvalidField: HTMLInputElement | null = null;
+
+    form.querySelectorAll<HTMLInputElement>('input, select, textarea').forEach((field) => {
+      if (field.offsetParent !== null && !field.disabled && !field.checkValidity()) {
+        formIsValid = false;
+        if (!firstInvalidField) {
+          firstInvalidField = field;
+        }
+      }
+    });
+
+    if (!formIsValid) {
+      if (firstInvalidField) {
+        firstInvalidField.reportValidity();
+      }
+      setProfileError(!selectedProfile ? "Select a container profile" : "");
+      return;
+    }
+
     if (buildImageStart) {
       await buildImageStart();
     }
@@ -57,42 +84,15 @@ function Form() {
   };
 
 
-  const submitTheForm = () => {
-
-    setProfileError("");
-    setFormErrors([]);
-
+  const cacheFormValues = () => {
     const form = document.querySelector("form");
 
-
-    const formIsValid = form.checkValidity();
-
-
-    // prevent form submit
-    if (!formIsValid) {
-      setTimeout(() => {
-        // Timeout here so we can collect the errors after the errors are rendered on the page
-        const errors = form.getElementsByClassName("invalid-feedback");
-        setFormErrors(Array.from(errors));
-      }, 10);
-
-      setTimeout(() => {
-        // Need to wait for the error summary to render
-        window.scrollTo(0, document.body.scrollHeight);
-      }, 100);
-
-      setProfileError(!selectedProfile ? "Select a container profile" : "");
-      return;
-    }
-
-    // Cache active unlisted-choice values
     const cacheUnlistedChoices = form.getElementsByClassName("cache-unlisted-choice");
     Array.from(cacheUnlistedChoices).forEach((el) => {
       const { id, value } = el as HTMLInputElement;
       cacheChoiceOption(id, value);
     });
 
-    // Cache active repository/ref values
     const cacheRepositories = form.getElementsByClassName("cache-repository");
     Array.from(cacheRepositories).forEach((el) => {
       const { id, value } = el as HTMLInputElement;
