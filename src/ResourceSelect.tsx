@@ -38,16 +38,16 @@ function ResourceSelect({
 
   const isNested = isActiveProp !== undefined;
   const isActive = isNested ? isActiveProp : selectedProfile?.slug === profile;
-  const setVal = !isNested && isActive && permalinkValues["profile"] === selectedProfile?.slug;
+  const setVal = isActive && permalinkValues["profile"] === selectedProfile?.slug;
 
-  const [value, setValue] = useState((setVal && permalinkValues[id]) || defaultOption?.value);
+  const [value, setValue] = useState((setVal && permalinkValues[id]) || (isNested ? "" : defaultOption?.value));
   const [unlistedChoiceValue, setUnlistedChoiceValue] = useState((setVal && permalinkValues[`${id}:unlisted_choice`]) || "");
 
   if (!(options.length > 0)) {
     return null;
   }
 
-  if (isActive && !isNested) {
+  if (isActive) {
     setPermalinkValue(id, value);
     setPermalinkValue(`${id}:unlisted_choice`, unlistedChoiceValue);
   }
