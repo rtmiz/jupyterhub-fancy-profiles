@@ -1,4 +1,5 @@
 import {
+  MouseEvent,
   ChangeEventHandler,
   MouseEventHandler,
   useContext,
@@ -30,42 +31,68 @@ function Form() {
   const { permalinkValues, setPermalinkValue, permalinkParseError } = useContext(PermalinkContext);
   const [profileError, setProfileError] = useState("");
   const [formErrors, setFormErrors] = useState<Element[]>([]);
-  const { cacheChoiceOption, cacheRepositorySelection } = useFormCache();
+  const { cacheChoiceOption, cacheRepositorySelection, buildImageStart, isBuildingImage } = useFormCache();
 
-  const handleSubmit: MouseEventHandler<HTMLButtonElement> = (e) => {
+  const [shouldSubmit, setShouldSubmit] = useState(false);
+
+  useEffect(() => {
+    if (shouldSubmit) {
+      cacheFormValues();
+      setShouldSubmit(false);
+      const form = document.querySelector("form");
+      if (form) {
+        form.requestSubmit();
+      }
+    }
+  }, [shouldSubmit]);
+
+
+  const handleSubmit: MouseEventHandler<HTMLButtonElement> = async (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     setProfileError("");
     setFormErrors([]);
-    const form = (e.target as HTMLElement).closest("form");
 
-    // validate the form
-    const formIsValid = form.checkValidity();
-
-    // prevent form submit
-    if (!formIsValid) {
-      setTimeout(() => {
-        // Timeout here so we can collect the errors after the errors are rendered on the page
-        const errors = form.getElementsByClassName("invalid-feedback");
-        setFormErrors(Array.from(errors));
-      }, 10);
-
-      setTimeout(() => {
-        // Need to wait for the error summary to render
-        window.scrollTo(0, document.body.scrollHeight);
-      }, 100);
-
-      setProfileError(!selectedProfile ? "Select a container profile" : "");
-      e.preventDefault();
+    const form = document.querySelector("form");
+    if (!form) {
       return;
     }
 
-    // Cache active unlisted-choice values
+    let formIsValid = true;
+    let firstInvalidField: HTMLInputElement | null = null;
+
+    form.querySelectorAll<HTMLInputElement>('input, select, textarea').forEach((field) => {
+      if (field.offsetParent !== null && !field.disabled && !field.checkValidity()) {
+        formIsValid = false;
+        if (!firstInvalidField) {
+          firstInvalidField = field;
+        }
+      }
+    });
+
+    if (!formIsValid) {
+      if (firstInvalidField) {
+        firstInvalidField.reportValidity();
+      }
+      setProfileError(!selectedProfile ? "Select a container profile" : "");
+      return;
+    }
+
+    if (buildImageStart) {
+      await buildImageStart();
+    }
+    setShouldSubmit(true);
+  };
+
+
+  const cacheFormValues = () => {
+    const form = document.querySelector("form");
+
     const cacheUnlistedChoices = form.getElementsByClassName("cache-unlisted-choice");
     Array.from(cacheUnlistedChoices).forEach((el) => {
       const { id, value } = el as HTMLInputElement;
       cacheChoiceOption(id, value);
     });
 
-    // Cache active repository/ref values
     const cacheRepositories = form.getElementsByClassName("cache-repository");
     Array.from(cacheRepositories).forEach((el) => {
       const { id, value } = el as HTMLInputElement;
@@ -104,6 +131,22 @@ function Form() {
     }
   }, [permalinkValues.profile]);
 
+  useEffect(() => {
+    if (permalinkValues["autoStart"] === "true") {
+      const form = document.querySelector("form");
+      if (form) {
+        const button = form.querySelector("button[type=\"submit\"]") as HTMLButtonElement | null;
+        if (button) {
+          setTimeout(() => {
+            button.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
+          }, 1000); // Give the form a second to render, and the profile to be selected, HACK but it works
+        }
+      }
+    }
+  }, [permalinkValues]);
+
+
+
   return (
     <fieldset
       aria-label="Select profile"
@@ -125,9 +168,8 @@ function Form() {
           <div
             id={`profile-${slug}`}
             key={slug}
-            className={`profile-select ${
-              selectedProfile?.slug === slug ? "selected-profile" : ""
-            }`}
+            className={`profile-select ${selectedProfile?.slug === slug ? "selected-profile" : ""
+              }`}
             onClick={() => {
               setProfile(slug);
               setPermalinkValue("profile", slug);
@@ -172,8 +214,8 @@ function Form() {
           <p><b>Unable to start the server. The form is incomplete.</b></p>
           <ul>
             {profileError && <li>{profileError}</li>}
-            {formErrors.map(err => (
-              <li>
+            {formErrors.map((err, index) => (
+              <li key={index}>
                 <a
                   href="#"
                   onClick={(e) => {
@@ -193,8 +235,9 @@ function Form() {
         className="btn btn-jupyter form-control"
         type="submit"
         onClick={handleSubmit}
+        disabled={isBuildingImage}
       >
-        Start
+        {buildImageStart ? "Build Image and Start" : "Start"}
       </button>
     </fieldset>
   );

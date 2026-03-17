@@ -7,7 +7,7 @@ ARG Z2JH_VERSION=4.3.1
 # then copy over just the built wheel files for the final image.
 # This keeps image size low while also making the whole process
 # reasonably simple
-FROM quay.io/jupyterhub/k8s-hub:${Z2JH_VERSION} as builder
+FROM quay.io/jupyterhub/k8s-hub:${Z2JH_VERSION} AS builder
 
 USER root
 
