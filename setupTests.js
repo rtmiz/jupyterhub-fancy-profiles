@@ -4,6 +4,10 @@ import fetchMock from "jest-fetch-mock";
 fetchMock.enableMocks();
 
 HTMLCanvasElement.prototype.getContext = () => {};
+
+// Mock window.scrollTo
+window.scrollTo = jest.fn();
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: jest.fn().mockImplementation((query) => ({
