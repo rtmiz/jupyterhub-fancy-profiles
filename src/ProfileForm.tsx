@@ -129,7 +129,7 @@ function Form() {
     if (form) {
       cacheFormValues(form);
     }
-
+    // When submit happened by mimicking the button (from query parameter)
     if (!nativeEvent) {
       form?.requestSubmit();
     }
