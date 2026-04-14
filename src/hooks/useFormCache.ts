@@ -15,6 +15,8 @@ function useFormCache(): IFormCache {
     setBuildImageStart,
     isBuildingImage,
     setIsBuildingImage,
+    isDynamicBuildActive,
+    setIsDynamicBuildActive,
   } = useContext(FormCacheContext) as IFormCache;
 
   return useMemo(
@@ -31,6 +33,8 @@ function useFormCache(): IFormCache {
       setBuildImageStart,
       isBuildingImage,
       setIsBuildingImage,
+      isDynamicBuildActive,
+      setIsDynamicBuildActive,
     }),
     [
       getChoiceOptions,
@@ -45,6 +49,8 @@ function useFormCache(): IFormCache {
       setBuildImageStart,
       isBuildingImage,
       setIsBuildingImage,
+      isDynamicBuildActive,
+      setIsDynamicBuildActive,
     ],
   );
 }

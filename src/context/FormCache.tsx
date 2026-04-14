@@ -28,6 +28,8 @@ export interface IFormCache {
   setBuildImageStart: Dispatch<SetStateAction<(() => Promise<void>) | null>>;
   isBuildingImage: boolean;
   setIsBuildingImage: Dispatch<SetStateAction<boolean>>;
+  isDynamicBuildActive: boolean;
+  setIsDynamicBuildActive: Dispatch<SetStateAction<boolean>>;
 }
 
 type TChoiceEntry = {
@@ -163,6 +165,7 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
 
   const [buildImageStart, setBuildImageStart] = useState<(() => Promise<void>) | null>(null);
   const [isBuildingImage, setIsBuildingImage] = useState<boolean>(false);
+  const [isDynamicBuildActive, setIsDynamicBuildActive] = useState<boolean>(false);
 
   const contextValue = useMemo(() => ({
     getChoiceOptions,
@@ -176,7 +179,9 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
     buildImageStart,
     setBuildImageStart,
     isBuildingImage,
-    setIsBuildingImage
+    setIsBuildingImage,
+    isDynamicBuildActive,
+    setIsDynamicBuildActive,
   }), [
     getChoiceOptions,
     cacheChoiceOption,
@@ -189,7 +194,9 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
     buildImageStart,
     setBuildImageStart,
     isBuildingImage,
-    setIsBuildingImage
+    setIsBuildingImage,
+    isDynamicBuildActive,
+    setIsDynamicBuildActive,
   ]);
 
   return (
