@@ -1,6 +1,4 @@
-import { useEffect, useState, useRef, useContext, useMemo, KeyboardEventHandler,
-  Dispatch, SetStateAction,
-} from "react";
+import { useEffect, useState, useRef, useContext, useMemo, KeyboardEventHandler } from "react";
 import { type Terminal } from "xterm";
 import { type FitAddon } from "xterm-addon-fit";
 
@@ -89,14 +87,12 @@ async function buildImage(
       term.write(data.message);
       // Resize our terminal to make sure it fits messages appropriately
       fitAddon.fit();
-    } else {
-      console.log(data);
     }
 
     switch (data.phase) {
       case "failed": {
         image.close();
-        return Promise.reject();
+        return Promise.reject(new Error("image build failed"));
       }
       case "ready": {
         // Close the EventStream when the image has been built
@@ -116,9 +112,10 @@ interface IImageLogs {
   setTerm: React.Dispatch<React.SetStateAction<Terminal>>;
   setFitAddon: React.Dispatch<React.SetStateAction<FitAddon>>;
   name: string;
+  onSetupError: (error: Error) => void;
 }
 
-function ImageLogs({ setTerm, setFitAddon, name }: IImageLogs) {
+function ImageLogs({ setTerm, setFitAddon, name, onSetupError }: IImageLogs) {
   const terminalId = `${name}--terminal`;
   useEffect(() => {
     async function setup() {
@@ -151,7 +148,14 @@ function ImageLogs({ setTerm, setFitAddon, name }: IImageLogs) {
       setFitAddon(fitAddon);
       term.write("Logs will appear here when image is being built");
     }
-    setup();
+    let cancelled = false;
+    setup().catch((e) => {
+      if (!cancelled) {
+        console.error("ImageLogs setup failed:", e);
+        onSetupError(e instanceof Error ? e : new Error(String(e)));
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -169,44 +173,23 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
   const { repo, repoId, repoFieldProps, repoError } =
     useRepositoryField(binderRepo);
   const { getRepositoryOptions, getRefOptions, removeRefOption, removeRepositoryOption,
-    setBuildImageStart, isBuildingImage, setIsBuildingImage } = useFormCache();
+    setBuildImageStart, isBuildingImage, setIsBuildingImage,
+    setIsDynamicBuildActive } = useFormCache();
 
   const [ref, setRef] = useState<string>(repoRef || "HEAD");
   const repoFieldRef = useRef<HTMLInputElement>();
   const branchFieldRef = useRef<HTMLInputElement>();
 
   const [customImage, setCustomImage] = useState<string>("");
-  const [customImageError] = useState<string>(null);
+  const [customImageError, setCustomImageError] = useState<string>("");
 
   const [term, setTerm] = useState<Terminal>(null);
   const [fitAddon, setFitAddon] = useState<FitAddon>(null);
 
-  const hrefReop = useRef<string>(repo);
-  const hrefRef = useRef<string>(ref);
-  const hrefRepoId = useRef<string>(repoId);
-  const hrefTerm = useRef<Terminal>(term);
-  const hrefFitAddon = useRef<FitAddon>(fitAddon);
-  const hrefSetCustomImage = useRef<Dispatch<SetStateAction<string>>>(null);
-  const hrefSetCustomImageError = useRef<Dispatch<SetStateAction<string>>>(null);
-  const hrefSetIsBuildingImage = useRef<Dispatch<SetStateAction<boolean>>>(null);
-
-  useEffect(() => {
-    hrefReop.current = repo;
-    hrefRef.current = ref;
-    hrefRepoId.current = repoId;
-    hrefTerm.current = term;
-    hrefFitAddon.current = fitAddon;
-    hrefSetCustomImage.current = setCustomImage;
-    hrefSetIsBuildingImage.current = setIsBuildingImage;
-
-  }, [repo, ref, repoId, term, fitAddon, setIsBuildingImage, setCustomImage]);
-  
   const repositoryOptions = getRepositoryOptions(name);
   const refOptions = useMemo(() => {
     return getRefOptions(name, repoId);
   }, [repoId]);
-
-
 
   if (isActive) {
     setPermalinkValue(`${optionKey}:binderProvider`, "gh");
@@ -214,51 +197,70 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
     setPermalinkValue(`${optionKey}:ref`, ref);
   }
 
+  useEffect(() => {
+    if (!isActive) setCustomImageError("");
+  }, [isActive]);
+
   const handleBuildStart = async () => {
-    if (repoFieldRef.current && !hrefReop.current) {
+    if (repoFieldRef.current && !repo) {
       repoFieldRef.current.focus();
       repoFieldRef.current.blur();
-      return;
+      throw new Error("Repository is required.");
     }
 
-    if (branchFieldRef.current && !hrefRef.current) {
+    if (branchFieldRef.current && !ref) {
       branchFieldRef.current.focus();
       branchFieldRef.current.blur();
-      return;
+      throw new Error("Git ref is required.");
     }
-
+    console.log(repo);
+    console.log(repoId);
     try {
-      hrefSetIsBuildingImage.current(true);
-      const imageName = await buildImage(hrefRepoId.current, hrefRef.current, 
-        hrefTerm.current, hrefFitAddon.current);
-      //console.log("handleBuildStart: step 4", imageName);
-      hrefSetCustomImage.current(imageName);
-      hrefTerm.current.write("\nImage has been built! Starting your server...");
-      hrefSetCustomImageError.current("");
+      setIsBuildingImage(true);
+      setCustomImageError("");
+      const imageName = await buildImage(repoId!, ref, term, fitAddon);
+      setCustomImage(imageName);
+      term.write("\nImage has been built! Starting your server...");
     } catch (e) {
-      console.log("Error building image: ", (e as Error)?.message || e);
-
+      const message = (e as Error)?.message || "Image build failed.";
+      setCustomImageError(message);
+      throw e;
     } finally {
-      hrefSetIsBuildingImage.current(false);
+      setIsBuildingImage(false);
     }
   };
 
+  // Single ref that always points at the latest handleBuildStart, so the
+  // stable wrapper registered in the context never sees a stale closure.
+  const latestBuildHandler = useRef<() => Promise<void>>();
+  latestBuildHandler.current = handleBuildStart;
+
   useEffect(() => {
-    if (isActive) {
-      setBuildImageStart(() => handleBuildStart);
-    } else {
-      setBuildImageStart(null);
-    }
+    if (!isActive) return;
+    setIsDynamicBuildActive(true);
+    return () => {
+      setIsDynamicBuildActive(false);
+    };
+  }, [isActive, setIsDynamicBuildActive]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    // Creating the wrapper so it can read latestBuildHandler.current when it runs. (preventing stale clusure)
+    const wrapper = () => {
+      const handler = latestBuildHandler.current;
+      return handler ? handler() : Promise.resolve();
+    };
+    setBuildImageStart(() => wrapper);
     return () => {
       setBuildImageStart(null);
     };
-  }, [isActive]);
+  }, [isActive, setBuildImageStart]);
 
   const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       (e.target as HTMLInputElement).blur();
-      handleBuildStart();
+      handleBuildStart().catch(() => {});
     }
   };
 
@@ -314,7 +316,7 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
         }}
         disabled={isBuildingImage}
       />
-
+      {/* Hidden text input to post the name of  built image  */}
       <input
         type="text"
         name={name}
@@ -323,6 +325,7 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
         required={isActive}
         aria-hidden="true"
         style={{ display: "none" }}
+        data-dynamic-build="true" 
         onInvalid={() => {}}
         onChange={() => {}} // Hack to prevent a console error, while at the same time allowing for this field to be validatable, ie. not making it read-only
       />
@@ -331,7 +334,12 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
           <b>Build Logs</b>
         </div>
         <div className="profile-option-control-container">
-          <ImageLogs setFitAddon={setFitAddon} setTerm={setTerm} name={name} />
+          <ImageLogs
+            setFitAddon={setFitAddon}
+            setTerm={setTerm}
+            name={name}
+            onSetupError={(e) => setCustomImageError(e.message || "Terminal setup failed.")}
+          />
           {customImageError && (
             <div className="invalid-feedback d-block">
               {customImageError}
