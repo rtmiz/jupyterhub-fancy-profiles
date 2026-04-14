@@ -3,13 +3,11 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import ProfileForm from "./ProfileForm";
-import renderWithContext from "./test/renderWithContext";
+import renderWithContext, { renderWithJupyterForm } from "./test/renderWithContext";
 
 describe("Profile form", () => {
   test("image and resource fields initially not tabable", async () => {
-    renderWithContext(
-      <ProfileForm />
-    );
+    renderWithContext(<ProfileForm />);
 
     const imageField = screen.getByLabelText("Image");
     expect(imageField.tabIndex).toEqual(-1);
@@ -21,9 +19,7 @@ describe("Profile form", () => {
   test("image and resource fields tabable", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <ProfileForm />
-    );
+    renderWithContext(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "CPU only No GPU, only CPU",
@@ -40,9 +36,7 @@ describe("Profile form", () => {
   test("custom image field is required", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <ProfileForm />
-    );
+    renderWithContext(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "CPU only No GPU, only CPU",
@@ -63,9 +57,7 @@ describe("Profile form", () => {
   test("shows error summary", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <form><ProfileForm /></form>
-    );
+    renderWithJupyterForm(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "CPU only No GPU, only CPU",
@@ -88,11 +80,7 @@ describe("Profile form", () => {
   test("custom image field needs specific format", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "CPU only No GPU, only CPU",
@@ -117,11 +105,7 @@ describe("Profile form", () => {
   test("custom image field accepts specific format", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "CPU only No GPU, only CPU",
@@ -182,11 +166,7 @@ describe("Profile form", () => {
   test("Multiple profiles renders", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "GPU Nvidia Tesla T4 GPU",
@@ -218,22 +198,14 @@ describe("Profile form", () => {
   });
 
   test("select with no options should not render", () => {
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
     expect(
       screen.queryByLabelText("Image - No options"),
     ).not.toBeInTheDocument();
   });
 
   test("profile marked as default is selected by default", () => {
-    const { container } = renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    const { container } = renderWithContext(<ProfileForm />);
     const hiddenRadio = container.querySelector("[name='profile']");
     expect((hiddenRadio as HTMLInputElement).value).toEqual("custom");
     const defaultRadio = screen.getByRole("radio", {
@@ -249,11 +221,7 @@ describe("Profile form", () => {
   test("having dynamic_image_building enabled and no other choices shows dropdown", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
     const select = screen.getByLabelText("Image - dynamic image building");
     await user.click(select);
     expect(screen.getByText("Build your own image")).toBeInTheDocument();
@@ -263,11 +231,7 @@ describe("Profile form", () => {
   test("copy permalink to clipboard", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
     const radio = screen.getByRole("radio", {
       name: "GPU Nvidia Tesla T4 GPU",
     });
@@ -294,11 +258,7 @@ describe("Profile form with URL Params", () => {
 
   test("ignores irrelevant params", () => {
     setHash("#foo=bar");
-    const { container } = renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    const { container } = renderWithContext(<ProfileForm />);
     const hiddenRadio = container.querySelector("[name='profile']");
     expect((hiddenRadio as HTMLInputElement).value).toEqual("custom");
     const defaultRadio = screen.getByRole("radio", {
@@ -310,11 +270,7 @@ describe("Profile form with URL Params", () => {
 
   test("ignores empty config", () => {
     setHash("#fancy-forms-config");
-    const { container } = renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    const { container } = renderWithContext(<ProfileForm />);
     const hiddenRadio = container.querySelector("[name='profile']");
     expect((hiddenRadio as HTMLInputElement).value).toEqual("custom");
     const defaultRadio = screen.getByRole("radio", {
@@ -326,11 +282,7 @@ describe("Profile form with URL Params", () => {
 
   test("shows error for malformed config", () => {
     setHash("#fancy-forms-config=%7B%22profile%22%3A%22build-custom-environment%22%2C%22image%22%3A%22--extra-selectable-item%22%2C%22image%3Aunlisted_choice%22%3A%22%22%2C%22image%3AbinderProvider%22%3A%22gh%22%2C%22image%3AbinderRepo%22%3A%22org%2Fre");
-    const { container } = renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    const { container } = renderWithContext(<ProfileForm />);
     const hiddenRadio = container.querySelector("[name='profile']");
     expect((hiddenRadio as HTMLInputElement).value).toEqual("custom");
     const defaultRadio = screen.getByRole("radio", {
@@ -342,11 +294,7 @@ describe("Profile form with URL Params", () => {
 
   test("preselects values", async () => {
     setHash("#fancy-forms-config=%7B%22profile%22%3A%22build-custom-environment%22%2C%22image%22%3A%22--extra-selectable-item%22%2C%22image%3Aunlisted_choice%22%3A%22%22%2C%22image%3AbinderProvider%22%3A%22gh%22%2C%22image%3AbinderRepo%22%3A%22org%2Frepo%22%2C%22image%3Aref%22%3A%22v1.0%22%7D");
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "Build custom environment Dynamic Image building + unlisted choice",
@@ -363,11 +311,7 @@ describe("Profile form with URL Params", () => {
 
   test("no-option profiles are rendered", () => {
     setHash("#fancy-forms-config=%7B%22profile%22%3A%22build-custom-environment%22%2C%22image%22%3A%22--extra-selectable-item%22%2C%22image%3Aunlisted_choice%22%3A%22%22%2C%22image%3AbinderProvider%22%3A%22gh%22%2C%22image%3AbinderRepo%22%3A%22org%2Frepo%22%2C%22image%3Aref%22%3A%22v1.0%22%7D");
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithContext(<ProfileForm />);
 
     const empty = screen.queryByRole("radio", {
       name: "Empty Options Profile with empty options",
