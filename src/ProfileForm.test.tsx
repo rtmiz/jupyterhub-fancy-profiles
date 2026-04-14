@@ -8,9 +8,7 @@ import renderWithContext from "./test/renderWithContext";
 describe("Profile form", () => {
   test("image and resource fields initially not tabable", async () => {
     renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
+      <ProfileForm />
     );
 
     const imageField = screen.getByLabelText("Image");
@@ -24,9 +22,7 @@ describe("Profile form", () => {
     const user = userEvent.setup();
 
     renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
+      <ProfileForm />
     );
 
     const radio = screen.getByRole("radio", {
@@ -45,9 +41,7 @@ describe("Profile form", () => {
     const user = userEvent.setup();
 
     renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
+      <ProfileForm />
     );
 
     const radio = screen.getByRole("radio", {
@@ -70,9 +64,7 @@ describe("Profile form", () => {
     const user = userEvent.setup();
 
     renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
+      <form><ProfileForm /></form>
     );
 
     const radio = screen.getByRole("radio", {
@@ -86,7 +78,7 @@ describe("Profile form", () => {
 
     const submitButton = screen.getByRole("button", { "name": "Start" });
     await user.click(submitButton);
-    await waitFor(() => expect(screen.getByText("Unable to start the server. The form is incomplete.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Unable to start the server. Check the error below.")).toBeInTheDocument());
     expect(screen.queryAllByText("Enter a value.").length).toEqual(2);
 
     // Check that one of the errors is the link in the error summary.
