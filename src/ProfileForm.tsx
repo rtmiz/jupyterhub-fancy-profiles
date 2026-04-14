@@ -1,5 +1,4 @@
 import {
-  MouseEvent,
   ChangeEventHandler,
   MouseEventHandler,
   useContext,
@@ -31,62 +30,26 @@ function Form() {
   const { permalinkValues, setPermalinkValue, permalinkParseError } = useContext(PermalinkContext);
   const [profileError, setProfileError] = useState("");
   const [formErrors, setFormErrors] = useState<Element[]>([]);
-  const { cacheChoiceOption, cacheRepositorySelection, buildImageStart, isBuildingImage } = useFormCache();
-
-  const [shouldSubmit, setShouldSubmit] = useState(false);
-
-  useEffect(() => {
-    if (shouldSubmit) {
-      cacheFormValues();
-      setShouldSubmit(false);
-      const form = document.querySelector("form");
-      if (form) {
-        form.requestSubmit();
-      }
-    }
-  }, [shouldSubmit]);
+  const {
+    cacheChoiceOption,
+    cacheRepositorySelection,
+    buildImageStart,
+    isBuildingImage,
+    isDynamicBuildActive,
+  } = useFormCache();
 
 
-  const handleSubmit: MouseEventHandler<HTMLButtonElement> = async (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    setProfileError("");
-    setFormErrors([]);
-
-    const form = document.querySelector("form");
-    if (!form) {
-      return;
-    }
-
-    let formIsValid = true;
-    let firstInvalidField: HTMLInputElement | null = null;
-
-    form.querySelectorAll<HTMLInputElement>('input, select, textarea').forEach((field) => {
-      if (field.offsetParent !== null && !field.disabled && !field.checkValidity()) {
-        formIsValid = false;
-        if (!firstInvalidField) {
-          firstInvalidField = field;
-        }
-      }
-    });
-
-    if (!formIsValid) {
-      if (firstInvalidField) {
-        firstInvalidField.reportValidity();
-      }
-      setProfileError(!selectedProfile ? "Select a container profile" : "");
-      return;
-    }
-
-    if (buildImageStart) {
-      await buildImageStart();
-    }
-    setShouldSubmit(true);
+  const collectFormErrors = (form: HTMLFormElement) => {
+    setTimeout(() => {
+      const errors = form.getElementsByClassName("invalid-feedback");
+      setFormErrors(Array.from(errors));
+    }, 10);
+    setTimeout(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    }, 100);
   };
 
-
-  const cacheFormValues = () => {
-    const form = document.querySelector("form");
-
+  const cacheFormValues = (form: HTMLFormElement) => {
     const cacheUnlistedChoices = form.getElementsByClassName("cache-unlisted-choice");
     Array.from(cacheUnlistedChoices).forEach((el) => {
       const { id, value } = el as HTMLInputElement;
@@ -98,10 +61,86 @@ function Form() {
       const { id, value } = el as HTMLInputElement;
       if (id.endsWith("--repo")) {
         const fieldName = id.slice(0, -6);
-        const refField = document.getElementById(`${fieldName}--ref`);
-        cacheRepositorySelection(fieldName, value, (refField as HTMLInputElement).value);
+        const refField = form.querySelector(`#${CSS.escape(`${fieldName}--ref`)}`);
+        if (refField) {
+          cacheRepositorySelection(fieldName, value, (refField as HTMLInputElement).value);
+        }
       }
     });
+  };
+
+  const preBuildValidate = (form: HTMLFormElement): boolean => {
+    let firstInvalid: HTMLInputElement | null = null;
+    form.querySelectorAll<HTMLInputElement>("input, select, textarea").forEach((field) => {
+      // Hidden text input for dynamically buit image name (input is empty)
+      if (field.dataset.dynamicBuild === "true") return;
+      if (field.disabled) return;
+      if (!field.checkValidity()) {
+        if (!firstInvalid) firstInvalid = field;
+      }
+    });
+    if (firstInvalid) {
+      firstInvalid!.reportValidity();
+      return false;
+    }
+    return true;
+  };
+
+  const submitFlow = async (
+    form: HTMLFormElement | null,
+    nativeEvent?: { preventDefault: () => void },
+  ): Promise<boolean> => {
+    setProfileError("");
+    setFormErrors([]);
+    // When there is no selected profile
+    if (!selectedProfile) {
+      nativeEvent?.preventDefault();
+      setProfileError("Select a container profile");
+      return false;
+    }
+    // when dynamic image build is requested
+    if (isDynamicBuildActive && buildImageStart) {
+      if (!form) return false;
+      nativeEvent?.preventDefault();
+      // but there is an error in form
+      if (!preBuildValidate(form)) {
+        collectFormErrors(form);
+        return false;
+      }
+
+      try {
+        await buildImageStart();
+      } catch {
+        collectFormErrors(form);
+        return false;
+      }
+
+      cacheFormValues(form);
+      form.requestSubmit();
+      return true;
+    }
+
+    if (form && !form.checkValidity()) {
+      nativeEvent?.preventDefault();
+      collectFormErrors(form);
+      return false;
+    }
+
+    if (form) {
+      cacheFormValues(form);
+    }
+
+    if (!nativeEvent) {
+      form?.requestSubmit();
+    }
+    return true;
+  };
+
+  const handleSubmit: MouseEventHandler<HTMLButtonElement> = (e) => {
+    const button = e.currentTarget;
+    const form = button.closest("form");
+
+    void submitFlow(form, e);
   };
 
   const handleProfileSelect: ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -131,6 +170,8 @@ function Form() {
     }
   }, [permalinkValues.profile]);
 
+  // @TODO: Replace setTimeout (hack for racing condition) + dispatchEvent (hack for stale closure)
+  // to proper sequencing of the events and calling submitflow directly
   useEffect(() => {
     if (permalinkValues["autoStart"] === "true") {
       const form = document.querySelector("form");
@@ -144,8 +185,6 @@ function Form() {
       }
     }
   }, [permalinkValues]);
-
-
 
   return (
     <fieldset
@@ -169,7 +208,7 @@ function Form() {
             id={`profile-${slug}`}
             key={slug}
             className={`profile-select ${selectedProfile?.slug === slug ? "selected-profile" : ""
-              }`}
+            }`}
             onClick={() => {
               setProfile(slug);
               setPermalinkValue("profile", slug);
@@ -211,7 +250,7 @@ function Form() {
         <div
           className={`form-errors ${formErrors.length > 0 || profileError ? "d-block" : "d-none"}`}
         >
-          <p><b>Unable to start the server. The form is incomplete.</b></p>
+          <p><b>Unable to start the server. Check the error below.</b></p>
           <ul>
             {profileError && <li>{profileError}</li>}
             {formErrors.map((err, index) => (
@@ -237,7 +276,7 @@ function Form() {
         onClick={handleSubmit}
         disabled={isBuildingImage}
       >
-        {buildImageStart ? "Build Image and Start" : "Start"}
+        {isDynamicBuildActive ? "Build Image and Start" : "Start"}
       </button>
     </fieldset>
   );
