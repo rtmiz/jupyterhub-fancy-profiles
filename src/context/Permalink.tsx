@@ -27,6 +27,7 @@ export const PermalinkProvider = ({ children }: PropsWithChildren) => {
       try {
         return JSON.parse(formConfig);
       } catch (e) {
+        // eslint-disable-next-line no-console
         console.error("Error parsing form config", e);
         setPermalinkParseError(true);
       }
