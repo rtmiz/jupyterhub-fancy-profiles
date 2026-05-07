@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useContext, useMemo, KeyboardEventHandler } from "react";
+import { flushSync } from "react-dom";
 import { type Terminal } from "xterm";
 import { type FitAddon } from "xterm-addon-fit";
 
@@ -219,7 +220,9 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
       setIsBuildingImage(true);
       setCustomImageError("");
       const imageName = await buildImage(repoId!, ref, term, fitAddon);
-      setCustomImage(imageName);
+      // flushSync forces React to update the hidden input's DOM value synchronously,
+      // so form.requestSubmit() in submitFlow sees the correct value immediately.
+      flushSync(() => { setCustomImage(imageName); });
       term.write("\nImage has been built! Starting your server...");
     } catch (e) {
       const message = (e as Error)?.message || "Image build failed.";
