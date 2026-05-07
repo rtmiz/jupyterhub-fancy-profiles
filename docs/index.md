@@ -1,6 +1,7 @@
 ---
 site:
   hide_outline: true
+  hide_title_block: true
 ---
 # Jupyterhub fancy profiles
 
