@@ -34,31 +34,132 @@ The file _did_ get more than 200 lines long, and BinderHub learned this lesson t
 
 ## Development setup
 
-### Setting up minikube
+### Setting up a local Kubernetes cluster
 
-Currently, these instructions work with [minikube](https://minikube.sigs.k8s.io/docs/start/) but can be adapted to any local Kubernetes setup.
+You can run JupyterHub on your local machine that can communicate with pods in a Kubernetes cluster.
 
-1. Download, set up and start [minikube](https://minikube.sigs.k8s.io/docs/start/)
+1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/)
+   with a container manager such as [docker](https://minikube.sigs.k8s.io/docs/drivers/docker/). If you are using macOS, then instead of minikube you may need to run a kubernetes cluster with a docker daemon inside a virtual machine manager such as [colima](https://colima.run/), e.g. `colima start --kubernetes --network-address`.
 
-2. Allow spawned JupyterHub server pods to talk to the JupyterHub instance on your local machine:
+2. Get the kubernetes pod subnet range – for minikube, run
+
+   ```bash
+   export POD_SUBNET=$(kubectl get node minikube -o jsonpath="{.spec.podCIDR}")
+   ```
+
+   or for colima run
+
+   ```bash
+   export POD_SUBNET=$(kubectl get node colima -o jsonpath="{.spec.podCIDR}")
+   ```
+
+3. Get gateway IP address of the kubernetes cluster – for minikube, run
+
+   ```bash
+   export GATEWAY_IP=$(minikube ip)
+   ```
+
+   or for colima, get the virtual machine IP address with
+
+   ```bash
+   export GATEWAY_IP=$(colima ssh -- hostname -I | awk '{print $2}')
+   ```
+
+4. Add a route for your local host to reach the pod subnet via the gateway IP address
 
    ```bash
    # Linux
-   sudo ip route add $(kubectl get node minikube -o jsonpath="{.spec.podCIDR}") via $(minikube ip)
+   sudo ip route add $POD_SUBNET via $GATEWAY_IP
+   # later on you can undo this with
+   sudo ip route del $POD_SUBNET
 
    # macOS
-   sudo route -n add -net $(kubectl get node minikube -o jsonpath="{.spec.podCIDR}") $(minikube ip)
+   sudo route -n add -net $POD_SUBNET $GATEWAY_IP
+   # later on you can undo this with
+   sudo route delete -net $POD_SUBNET
    ```
 
-   You can later undo this with:
+### Troubleshooting
+
+#### Local JupyterHub can't reach the Kubernetes cluster or user pods
+
+If your locally running JupyterHub can't reach the Kubernetes cluster or the user pods running within it, work through these checks. The steps below use `$POD_SUBNET` and `$GATEWAY_IP` — set these first if you haven't already:
+
+```bash
+# minikube
+export POD_SUBNET=$(kubectl get node minikube -o jsonpath="{.spec.podCIDR}")
+export GATEWAY_IP=$(minikube ip)
+
+# colima
+export POD_SUBNET=$(kubectl get node colima -o jsonpath="{.spec.podCIDR}")
+export GATEWAY_IP=$(colima ssh -- hostname -I | awk '{print $2}')
+```
+
+1. **Confirm kubectl is pointing at the right cluster**:
+
+   ```bash
+   kubectl config current-context
+   ```
+
+   Expected output: `minikube` or `colima`. If not, run `kubectl config use-context minikube` or `kubectl config use-context colima`.
+
+2. **Confirm the node is ready**:
+
+   ```bash
+   # minikube
+   kubectl get node minikube
+
+   # colima
+   kubectl get node colima
+   ```
+
+   The `STATUS` column should show `Ready`. If not, try `minikube start` or `colima start --kubernetes --network-address`.
+
+3. **Confirm the VM is reachable from your host**:
+
+   ```bash
+   ping -c 3 $GATEWAY_IP
+   ```
+
+   If this fails, the VM itself is unreachable—restart minikube or colima.
+
+4. **Confirm the pod CIDR route was added**:
 
    ```bash
    # Linux
-   sudo ip route del $(kubectl get node minikube -o jsonpath="{.spec.podCIDR}")
+   ip route show $POD_SUBNET
 
    # macOS
-   sudo route delete -net $(kubectl get node minikube -o jsonpath="{.spec.podCIDR}")
+   netstat -rn | grep $GATEWAY_IP
    ```
+
+   If no route is shown, re-run the `ip route add` / `route -n add` command from the previous step.
+
+5. **Confirm a running pod is reachable**:
+
+   ```bash
+   # Find a pod IP
+   kubectl get pods -A -o wide
+
+   # Ping it
+   ping -c 3 <pod-ip>
+   ```
+
+   If steps 3 and 4 pass but this fails, the route is misconfigured—delete it and re-add it.
+
+#### "Build your own image" fails with a Docker connection error
+
+If you see an error like:
+
+```
+docker.errors.DockerException: Error while fetching server API version: ('Connection aborted.', FileNotFoundError(2, 'No such file or directory'))
+```
+
+Make sure `DOCKER_HOST` points to the correct socket. For colima users:
+
+```bash
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+```
 
 ### Setting up the development environment
 
@@ -103,6 +204,16 @@ Currently, these instructions work with [minikube](https://minikube.sigs.k8s.io/
    ```bash
    npm run webpack:watch
    ```
+
+## Development workflow
+
+### React app changes
+
+`npm run webpack:watch` automatically rebuilds the JS/CSS when you save a file. However, the browser caches the old bundle, so you might need to reload or force-reload the page to pick up the new assets.
+
+### JupyterHub config and Jinja template changes
+
+Changes to `jupyterhub_config.py` or the Jinja2 templates require a **JupyterHub restart** to take effect. Stop the running `jupyterhub` process and start it again.
 
 ## Testing
 
