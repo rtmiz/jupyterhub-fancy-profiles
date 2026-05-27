@@ -36,10 +36,11 @@ The file _did_ get more than 200 lines long, and BinderHub learned this lesson t
 
 ### Setting up a local Kubernetes cluster
 
-You can run JupyterHub on your local machine that can communicate with pods in a Kubernetes cluster.
+We will run a local Kubernetes cluster and point our local JupyterHub instance at it. This allows us to spawn pods in the local cluster and test the user experience end-to-end without needing a remote cluster.
 
-1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/)
-   with a container manager such as [docker](https://minikube.sigs.k8s.io/docs/drivers/docker/). If you are using macOS, then instead of minikube you may need to run a kubernetes cluster with a docker daemon inside a virtual machine manager such as [colima](https://colima.run/), e.g. `colima start --kubernetes --network-address`.
+1. Download, set up, and start [minikube](https://minikube.sigs.k8s.io/docs/start/) or [colima](https://colima.run/).
+
+   **For Mac OS users:** The minikube docker driver does not allow the host machine to communicate with pods inside the cluster, which is required for our development workflow. To work around this, either use [colima](https://colima.run/) (`colima start --kubernetes --network-address`), or configure minikube with the `qemu` driver and `socket_vmnet` networking as described in the [minikube docs](https://minikube.sigs.k8s.io/docs/drivers/qemu/#networking).
 
 2. Get the kubernetes pod subnet range – for minikube, run
 
@@ -47,13 +48,13 @@ You can run JupyterHub on your local machine that can communicate with pods in a
    export POD_SUBNET=$(kubectl get node minikube -o jsonpath="{.spec.podCIDR}")
    ```
 
-   or for colima run
+   or for colima, run
 
    ```bash
    export POD_SUBNET=$(kubectl get node colima -o jsonpath="{.spec.podCIDR}")
    ```
 
-3. Get gateway IP address of the kubernetes cluster – for minikube, run
+3. Get the gateway IP address of the kubernetes cluster – for minikube, run
 
    ```bash
    export GATEWAY_IP=$(minikube ip)
