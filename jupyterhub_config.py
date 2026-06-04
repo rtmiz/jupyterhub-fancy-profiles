@@ -16,7 +16,7 @@ c.JupyterHub.spawner_class = "kubespawner.KubeSpawner"
 c.Spawner.cmd = ["jupyterhub-singleuser"]
 
 # A longer timout, since pulling images locally can be slow.
-c.Spawner.timeout = 120
+c.Spawner.start_timeout = 120
 
 # Don't try to cleanup servers on exit - since in general for k8s, we want
 # the hub to be able to restart without losing user containers
