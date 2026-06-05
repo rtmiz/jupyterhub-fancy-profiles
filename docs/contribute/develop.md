@@ -40,7 +40,7 @@ We will run a local Kubernetes cluster and point our local JupyterHub instance a
 
 1. Download, set up, and start [minikube](https://minikube.sigs.k8s.io/docs/start/) or [colima](https://colima.run/).
 
-   **For Mac OS users:** The minikube docker driver does not allow the host machine to communicate with pods inside the cluster, which is required for our development workflow. To work around this, either use [colima](https://colima.run/) (`colima start --kubernetes --network-address`), or configure minikube with the `qemu` driver and `socket_vmnet` networking as described in the [minikube docs](https://minikube.sigs.k8s.io/docs/drivers/qemu/#networking).
+   **For Mac OS users:** The minikube docker driver does not allow the host machine to communicate with pods inside the cluster, which is required for our development workflow. To work around this, either use [colima](https://colima.run/) (`colima start --kubernetes --network-address`), or configure minikube with the `qemu` driver and `socket_vmnet` networking as described in the [minikube docs](https://minikube.sigs.k8s.io/docs/drivers/qemu/#networking) and start minikube with those options(`minikube start --driver qemu --network socket_vmnet`).
 
 2. Get the kubernetes pod subnet range – for minikube, run
 
