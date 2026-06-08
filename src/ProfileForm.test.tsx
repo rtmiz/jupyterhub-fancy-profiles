@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import ProfileForm from "./ProfileForm";
-import renderWithContext from "./test/renderWithContext";
+import renderWithContext, { renderWithJupyterForm } from "./test/renderWithContext";
 
 describe("Profile form", () => {
   test("image and resource fields initially not tabable", async () => {
@@ -57,11 +57,7 @@ describe("Profile form", () => {
   test("shows error summary", async () => {
     const user = userEvent.setup();
 
-    renderWithContext(
-      <form>
-        <ProfileForm />
-      </form>
-    );
+    renderWithJupyterForm(<ProfileForm />);
 
     const radio = screen.getByRole("radio", {
       name: "CPU only No GPU, only CPU",
@@ -74,7 +70,7 @@ describe("Profile form", () => {
 
     const submitButton = screen.getByRole("button", { "name": "Start" });
     await user.click(submitButton);
-    await waitFor(() => expect(screen.getByText("Unable to start the server. The form is incomplete.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Unable to start the server. Check the error below.")).toBeInTheDocument());
     expect(screen.queryAllByText("Enter a value.").length).toEqual(2);
 
     // Check that one of the errors is the link in the error summary.
@@ -244,7 +240,7 @@ describe("Profile form", () => {
 
     const clipboardText = await navigator.clipboard.readText();
 
-    expect(clipboardText).toBe("http://localhost/hub/login?next=/hub/spawn%23fancy-forms-config=%7B%22profile%22%3A%22gpu%22%2C%22image%22%3A%22geospatial%22%2C%22image%3Aunlisted_choice%22%3A%22%22%2C%22resources%22%3A%22mem_2_7%22%2C%22resources%3Aunlisted_choice%22%3A%22%22%7D");
+    expect(clipboardText).toBe("http://localhost/hub/login?next=/hub/spawn%23fancy-forms-config=%7B%22profile%22%3A%22gpu%22%2C%22image%22%3A%22geospatial%22%2C%22image%3Aunlisted_choice%22%3A%22%22%2C%22resources%22%3A%22mem_2_7%22%2C%22resources%3Aunlisted_choice%22%3A%22%22%2C%22autoStart%22%3A%22false%22%7D");
   });
 });
 

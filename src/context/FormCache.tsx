@@ -4,6 +4,9 @@ import {
   useCallback,
   useEffect,
   useState,
+  useMemo,
+  Dispatch,
+  SetStateAction
 } from "react";
 import { cacheOption, getRecords, removeOption, removeRepository } from "../utils/indexedDb";
 
@@ -20,6 +23,13 @@ export interface IFormCache {
     repository: string,
     ref: string,
   ) => void;
+
+  buildImageStart: (() => Promise<void>) | null;
+  setBuildImageStart: Dispatch<SetStateAction<(() => Promise<void>) | null>>;
+  isBuildingImage: boolean;
+  setIsBuildingImage: Dispatch<SetStateAction<boolean>>;
+  isDynamicBuildActive: boolean;
+  setIsDynamicBuildActive: Dispatch<SetStateAction<boolean>>;
 }
 
 type TChoiceEntry = {
@@ -153,7 +163,11 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
     loadPreviousRepositories();
   }, []);
 
-  const contextValue = {
+  const [buildImageStart, setBuildImageStart] = useState<(() => Promise<void>) | null>(null);
+  const [isBuildingImage, setIsBuildingImage] = useState<boolean>(false);
+  const [isDynamicBuildActive, setIsDynamicBuildActive] = useState<boolean>(false);
+
+  const contextValue = useMemo(() => ({
     getChoiceOptions,
     cacheChoiceOption,
     getRepositoryOptions,
@@ -161,8 +175,29 @@ export const FormCacheProvider = ({ children }: PropsWithChildren) => {
     cacheRepositorySelection,
     removeChoiceOption,
     removeRepositoryOption,
-    removeRefOption
-  };
+    removeRefOption,
+    buildImageStart,
+    setBuildImageStart,
+    isBuildingImage,
+    setIsBuildingImage,
+    isDynamicBuildActive,
+    setIsDynamicBuildActive,
+  }), [
+    getChoiceOptions,
+    cacheChoiceOption,
+    getRepositoryOptions,
+    getRefOptions,
+    cacheRepositorySelection,
+    removeChoiceOption,
+    removeRepositoryOption,
+    removeRefOption,
+    buildImageStart,
+    setBuildImageStart,
+    isBuildingImage,
+    setIsBuildingImage,
+    isDynamicBuildActive,
+    setIsDynamicBuildActive,
+  ]);
 
   return (
     <FormCacheContext.Provider value={contextValue}>
