@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useContext, useMemo, KeyboardEventHandler } from "react";
+import { flushSync } from "react-dom";
 import { type Terminal } from "xterm";
 import { type FitAddon } from "xterm-addon-fit";
 
@@ -8,24 +9,72 @@ import useFormCache from "./hooks/useFormCache";
 import { PermalinkContext } from "./context/Permalink";
 import { ICustomOptionProps } from "./types/fields";
 
+const TOKEN_KEY = "jupytherhub-build-token";
+
+async function getApiToken () {
+  const xsrfToken = (`; ${document.cookie}`).split("; _xsrf=").pop().split(";")[0];
+  const userResponse = await fetch(`/hub/api/user?_xsrf=${xsrfToken}`);
+  const { name } = await userResponse.json();
+
+  const exisitingToken = localStorage.getItem(TOKEN_KEY);
+  if (exisitingToken) {
+    const { id, expires_at, token } = JSON.parse(exisitingToken);
+    const expiryDate = Date.parse(expires_at);
+    const isExpired = expiryDate < new Date().getTime();
+
+    if (isExpired) {
+      // Token is expired, deleting from server and localStorage
+      localStorage.removeItem(TOKEN_KEY);
+      await fetch(`/hub/api/users/${name}/tokens/${id}?_xsrf=${xsrfToken}`, {
+        method: "DELETE"
+      });
+    } else {
+      return token;
+    }
+  }
+
+  // No token or token is expired, requesting a new token
+  const tokenResponse = await fetch(`/hub/api/users/${name}/tokens?_xsrf=${xsrfToken}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      expires_in: 3600,
+      note: "Created by Fancy Profiles for Build your Own Image"
+    }),
+    credentials: "include"
+  });
+  const res = await tokenResponse.json();
+  localStorage.setItem(TOKEN_KEY, JSON.stringify(res));
+  return res.token;
+}
+
 async function buildImage(
   repo: string,
   ref: string,
   term: Terminal,
   fitAddon: FitAddon,
 ) {
-  const { BinderRepository } = await import("@jupyterhub/binderhub-client");
+  const apiToken = await getApiToken();
+
+  // @ts-expect-error - v0.5.0 client types not available
+  const { BinderRepository } = await import("@jupyterhub/binderhub-client/client.js");
   const providerSpec = "gh/" + repo + "/" + ref;
   // FIXME: Assume the binder api is available in the same hostname, under /services/binder/
   const buildEndPointURL = new URL(
     "/services/binder/build/",
     window.location.origin,
   );
+
+  // Use new v0.5.0 API with options object - only apiToken needed for auth
   const image = new BinderRepository(
     providerSpec,
     buildEndPointURL,
-    null,
-    true,
+    {
+      apiToken,     // JupyterHub API token for Authorization header
+      buildOnly: true,
+    }
   );
   // Clear the last line written, so we start from scratch
   term.write("\x1b[2K\r");
@@ -39,14 +88,12 @@ async function buildImage(
       term.write(data.message);
       // Resize our terminal to make sure it fits messages appropriately
       fitAddon.fit();
-    } else {
-      console.log(data);
     }
 
     switch (data.phase) {
       case "failed": {
         image.close();
-        return Promise.reject();
+        return Promise.reject(new Error("image build failed"));
       }
       case "ready": {
         // Close the EventStream when the image has been built
@@ -66,9 +113,10 @@ interface IImageLogs {
   setTerm: React.Dispatch<React.SetStateAction<Terminal>>;
   setFitAddon: React.Dispatch<React.SetStateAction<FitAddon>>;
   name: string;
+  onSetupError: (error: Error) => void;
 }
 
-function ImageLogs({ setTerm, setFitAddon, name }: IImageLogs) {
+function ImageLogs({ setTerm, setFitAddon, name, onSetupError }: IImageLogs) {
   const terminalId = `${name}--terminal`;
   useEffect(() => {
     async function setup() {
@@ -101,7 +149,14 @@ function ImageLogs({ setTerm, setFitAddon, name }: IImageLogs) {
       setFitAddon(fitAddon);
       term.write("Logs will appear here when image is being built");
     }
-    setup();
+    let cancelled = false;
+    setup().catch((e) => {
+      if (!cancelled) {
+        console.error("ImageLogs setup failed:", e);
+        onSetupError(e instanceof Error ? e : new Error(String(e)));
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -118,28 +173,24 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
   const binderRepo= permalinkValues[`${optionKey}:binderRepo`];
   const { repo, repoId, repoFieldProps, repoError } =
     useRepositoryField(binderRepo);
-  const { getRepositoryOptions, getRefOptions, removeRefOption, removeRepositoryOption } = useFormCache();
+  const { getRepositoryOptions, getRefOptions, removeRefOption, removeRepositoryOption,
+    setBuildImageStart, isBuildingImage, setIsBuildingImage,
+    setIsDynamicBuildActive } = useFormCache();
 
   const [ref, setRef] = useState<string>(repoRef || "HEAD");
   const repoFieldRef = useRef<HTMLInputElement>();
   const branchFieldRef = useRef<HTMLInputElement>();
 
   const [customImage, setCustomImage] = useState<string>("");
-  const [customImageError, setCustomImageError] = useState<string>(null);
+  const [customImageError, setCustomImageError] = useState<string>("");
 
   const [term, setTerm] = useState<Terminal>(null);
   const [fitAddon, setFitAddon] = useState<FitAddon>(null);
-
-  const [isBuildingImage, setIsBuildingImage] = useState<boolean>(false);
 
   const repositoryOptions = getRepositoryOptions(name);
   const refOptions = useMemo(() => {
     return getRefOptions(name, repoId);
   }, [repoId]);
-
-  useEffect(() => {
-    if (!isActive) setCustomImageError("");
-  }, [isActive]);
 
   if (isActive) {
     setPermalinkValue(`${optionKey}:binderProvider`, "gh");
@@ -147,36 +198,72 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
     setPermalinkValue(`${optionKey}:ref`, ref);
   }
 
+  useEffect(() => {
+    if (!isActive) setCustomImageError("");
+  }, [isActive]);
+
   const handleBuildStart = async () => {
     if (repoFieldRef.current && !repo) {
       repoFieldRef.current.focus();
       repoFieldRef.current.blur();
-      return;
+      throw new Error("Repository is required.");
     }
 
     if (branchFieldRef.current && !ref) {
       branchFieldRef.current.focus();
       branchFieldRef.current.blur();
-      return;
+      throw new Error("Git ref is required.");
     }
-
-    setIsBuildingImage(true);
-    buildImage(repoId, ref, term, fitAddon)
-      .then((imageName) => {
-        setCustomImage(imageName);
-        term.write(
-          "\nImage has been built! Click the start button to launch your server",
-        );
-      })
-      .catch(() => console.log("Error building image."))
-      .finally(() => setIsBuildingImage(false));
+    console.log(repo);
+    console.log(repoId);
+    try {
+      setIsBuildingImage(true);
+      setCustomImageError("");
+      const imageName = await buildImage(repoId!, ref, term, fitAddon);
+      // flushSync forces React to update the hidden input's DOM value synchronously,
+      // so form.requestSubmit() in submitFlow sees the correct value immediately.
+      flushSync(() => { setCustomImage(imageName); });
+      term.write("\nImage has been built! Starting your server...");
+    } catch (e) {
+      const message = (e as Error)?.message || "Image build failed.";
+      setCustomImageError(message);
+      throw e;
+    } finally {
+      setIsBuildingImage(false);
+    }
   };
+
+  // Single ref that always points at the latest handleBuildStart, so the
+  // stable wrapper registered in the context never sees a stale closure.
+  const latestBuildHandler = useRef<() => Promise<void>>();
+  latestBuildHandler.current = handleBuildStart;
+
+  useEffect(() => {
+    if (!isActive) return;
+    setIsDynamicBuildActive(true);
+    return () => {
+      setIsDynamicBuildActive(false);
+    };
+  }, [isActive, setIsDynamicBuildActive]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    // Creating the wrapper so it can read latestBuildHandler.current when it runs. (preventing stale clusure)
+    const wrapper = () => {
+      const handler = latestBuildHandler.current;
+      return handler ? handler() : Promise.resolve();
+    };
+    setBuildImageStart(() => wrapper);
+    return () => {
+      setBuildImageStart(null);
+    };
+  }, [isActive, setBuildImageStart]);
 
   const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       (e.target as HTMLInputElement).blur();
-      handleBuildStart();
+      handleBuildStart().catch(() => {});
     }
   };
 
@@ -207,8 +294,8 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
           }
         }
         onKeyDown={handleKeyDown}
+        disabled={isBuildingImage}
       />
-
       <Combobox
         id={`${name}--ref`}
         label="Git Ref"
@@ -221,24 +308,18 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
           }
         }
         onChange={(e) => setRef(e.target.value)}
+        onBlur={(e) => {
+          setRef(e.target.value.trim());
+        }}
         tabIndex={isActive ? 0 : -1}
         options={refOptions}
         autoComplete="off"
         onRemoveOption={(option) => {
           removeRefOption(name, repoFieldProps.value, option);
         }}
+        disabled={isBuildingImage}
       />
-
-      <div className="right-button">
-        <button
-          type="button"
-          className="btn btn-jupyter"
-          onClick={handleBuildStart}
-          disabled={isBuildingImage}
-        >
-          Build image
-        </button>
-      </div>
+      {/* Hidden text input to post the name of  built image  */}
       <input
         type="text"
         name={name}
@@ -247,8 +328,8 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
         required={isActive}
         aria-hidden="true"
         style={{ display: "none" }}
-        onInvalid={() =>
-          setCustomImageError("Wait for the image build to complete.")}
+        data-dynamic-build="true" 
+        onInvalid={() => {}}
         onChange={() => {}} // Hack to prevent a console error, while at the same time allowing for this field to be validatable, ie. not making it read-only
       />
       <div className="profile-option-container">
@@ -256,7 +337,12 @@ export function ImageBuilder({ name, isActive, optionKey }: ICustomOptionProps) 
           <b>Build Logs</b>
         </div>
         <div className="profile-option-control-container">
-          <ImageLogs setFitAddon={setFitAddon} setTerm={setTerm} name={name} />
+          <ImageLogs
+            setFitAddon={setFitAddon}
+            setTerm={setTerm}
+            name={name}
+            onSetupError={(e) => setCustomImageError(e.message || "Terminal setup failed.")}
+          />
           {customImageError && (
             <div className="invalid-feedback d-block">
               {customImageError}

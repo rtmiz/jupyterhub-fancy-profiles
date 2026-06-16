@@ -27,6 +27,7 @@ export const PermalinkProvider = ({ children }: PropsWithChildren) => {
       try {
         return JSON.parse(formConfig);
       } catch (e) {
+        // eslint-disable-next-line no-console
         console.error("Error parsing form config", e);
         setPermalinkParseError(true);
       }
@@ -46,6 +47,7 @@ export const PermalinkProvider = ({ children }: PropsWithChildren) => {
   };
 
   const copyPermalink = () => {
+    setPermalinkValue("autoStart", "false");
     const params = new URLSearchParams();
     params.set(queryParamName, JSON.stringify(urlParams));
     const link = `${location.origin}/hub/login${location.search ? location.search + "&" : "?"}next=/hub/spawn%23${params.toString()}`;

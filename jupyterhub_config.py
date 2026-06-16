@@ -15,6 +15,9 @@ c.JupyterHub.spawner_class = "kubespawner.KubeSpawner"
 # not the jupyterhub-singleuser
 c.Spawner.cmd = ["jupyterhub-singleuser"]
 
+# A longer timout, since pulling images locally can be slow.
+c.Spawner.start_timeout = 120
+
 # Don't try to cleanup servers on exit - since in general for k8s, we want
 # the hub to be able to restart without losing user containers
 c.JupyterHub.cleanup_servers = False
@@ -28,7 +31,18 @@ c.JupyterHub.services = [
         "command": ["python", "-m", "binderhub", "-f", "binderhub_config.py"],
         # Pass on environment variables required for binderhub to find where the docker image is
         "environment": os.environ.copy(),
+        "oauth_client_id": "service-binderhub",
+        "oauth_no_confirm": True,
+        "oauth_redirect_uri": "http://localhost:8585/oauth_callback",
     }
+]
+
+c.JupyterHub.load_roles = [
+    {
+        "name": "user",
+        # grant all users access to services
+        "scopes": ["self", "access:services"],
+    },
 ]
 
 # Find the IP of the machine that minikube is most likely able to talk to
@@ -61,6 +75,14 @@ c.KubeSpawner.profile_list = [
                     "kubespawner_override": {"image": "{value}"},
                 },
                 "choices": {
+                    "minimal-notebook": {
+                        "display_name": "Jupyter Minimal Notebook",
+                        "description": "Minimal Python image with JupyterLab",
+                        "default": True,
+                        "kubespawner_override": {
+                            "image": "quay.io/jupyter/minimal-notebook:python-3.13"
+                        },
+                    },
                     "pangeo": {
                         "display_name": "Pangeo Notebook Image",
                         "description": "Python image with scientific, dask and geospatial tools",
@@ -71,7 +93,6 @@ c.KubeSpawner.profile_list = [
                     "geospatial": {
                         "display_name": "Rocker Geospatial",
                         "description": "R image with RStudio, the tidyverse & Geospatial tools",
-                        "default": True,
                         "slug": "geospatial",
                         "kubespawner_override": {
                             "image": "rocker/binder:4.3",
@@ -91,6 +112,16 @@ c.KubeSpawner.profile_list = [
             "resources": {
                 "display_name": "Resource Allocation",
                 "choices": {
+                    "mem_1_0": {
+                        "display_name": "1.0 GB RAM, upto 1 CPUs",
+                        "description": "Minimal resources, good for testing",
+                        "kubespawner_override": {
+                            "mem_guarantee": 512,
+                            "mem_limit": 1073741824,
+                            "cpu_guarantee": 0.1,
+                            "cpu_limit": 1,
+                        },
+                    },
                     "mem_2_7": {
                         "display_name": "2.7 GB RAM, upto 3.479 CPUs",
                         "description": "Use this for the workshop on 2023 September",

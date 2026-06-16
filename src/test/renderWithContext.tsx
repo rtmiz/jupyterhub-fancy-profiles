@@ -16,4 +16,8 @@ function renderWithContext(children: React.ReactNode) {
   );
 }
 
+export function renderWithJupyterForm(children: React.ReactNode) {
+  return renderWithContext(<form>{children}</form>);
+}
+
 export default renderWithContext;

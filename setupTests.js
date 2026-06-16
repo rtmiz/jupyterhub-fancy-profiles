@@ -4,6 +4,23 @@ import fetchMock from "jest-fetch-mock";
 fetchMock.enableMocks();
 
 HTMLCanvasElement.prototype.getContext = () => {};
+
+// jsdom doesn't expose crypto.randomUUID or structuredClone, but fake-indexeddb needs them
+if (!globalThis.crypto?.randomUUID) {
+  const nodeCrypto = require("crypto");
+  Object.defineProperty(globalThis.crypto, "randomUUID", {
+    value: nodeCrypto.randomUUID.bind(nodeCrypto),
+    configurable: true,
+    writable: true,
+  });
+}
+if (typeof globalThis.structuredClone !== "function") {
+  globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
+}
+
+// Mock window.scrollTo
+window.scrollTo = jest.fn();
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: jest.fn().mockImplementation((query) => ({
