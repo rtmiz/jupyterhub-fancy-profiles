@@ -60,7 +60,9 @@ c.KubeSpawner.profile_list = [
 
 This configuration renders like below.
 
-![Screenshot of Jupyter Fancyprofile](images/profile-example-1.png)
+```{figure} ../images/profile-example-1.png
+The profile above, rendered as selectable image and resource cards.
+```
 
 ## Bring your own image
 
@@ -86,7 +88,9 @@ Use the `unlisted_choice` option to let users type in a custom value in a free-f
 }
 ```
 
-![Screenshot of Jupyter Fancyprofile unlisted choice option](images/profile-example-2.png)
+```{figure} ../images/profile-example-2.png
+The "Specify an existing docker image" option, where users type their own image name.
+```
 
 You can combine this with `choices` so users can either pick a default image or type in their own.
 
