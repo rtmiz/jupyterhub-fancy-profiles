@@ -50,7 +50,7 @@ helm upgrade --install jupyterhub jupyterhub/jupyterhub \
   --values values.yaml
 ```
 
-That's it! Your JupyterHub should now have fancy profiles enabled.
+That's it! Your JupyterHub will now show the fancy profiles selector when users start a server.
 
 ## Installation with kubespawner in jupyterhub configuration
 
